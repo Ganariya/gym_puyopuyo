@@ -1,4 +1,5 @@
-from __future__ import unicode_literals
+from __future__ import unicode_literals, annotations
+from typing import List, Tuple, Optional
 
 import sys
 
@@ -8,22 +9,22 @@ from gym.utils import seeding
 from gym_puyopuyo import util
 from gym_puyopuyo.field import BottomField, TallField
 
-ALLOWED_HEIGHTS = (BottomField.HEIGHT, TallField.HEIGHT, 13)
+ALLOWED_HEIGHTS: Tuple[int, int, int] = (BottomField.HEIGHT, TallField.HEIGHT, 13)
 
 
 class State(object):
-    TESTING = False
+    TESTING: bool = False
 
     def __init__(
-        self,
-        height,
-        width,
-        num_layers,
-        num_deals=None,
-        tsu_rules=False,
-        has_garbage=False,
-        deals=None,
-        seed=None
+            self,
+            height: int,
+            width: int,
+            num_layers: int,
+            num_deals=None,
+            tsu_rules=False,
+            has_garbage=False,
+            deals=None,
+            seed=None
     ):
         if height not in ALLOWED_HEIGHTS:
             raise NotImplementedError("Only heights {} supported".format(ALLOWED_HEIGHTS))
@@ -40,49 +41,49 @@ class State(object):
             self.field = BottomField(num_layers, has_garbage=has_garbage)
         else:
             self.field = TallField(num_layers, tsu_rules=tsu_rules, has_garbage=has_garbage)
-        self.width = width
-        self.height = height
-        self.num_deals = num_deals
-        self.garbage_x = 0 if has_garbage else None
+        self.width: int = width
+        self.height: int = height
+        self.num_deals: int = num_deals
+        self.garbage_x: Optional[int] = 0 if has_garbage else None
         self.make_actions()
         self.seed(seed)
         if deals is None:
             self.make_deals()
         else:
-            self.deals = list(deals)
+            self.deals: List[Tuple[int, int]] = list(deals)
 
     @property
-    def num_colors(self):
+    def num_colors(self) -> int:
         return self.field.num_colors
 
     @property
-    def num_layers(self):
+    def num_layers(self) -> int:
         return self.field.num_layers
 
     @property
-    def has_garbage(self):
+    def has_garbage(self) -> bool:
         return self.field.has_garbage
 
     @property
-    def tsu_rules(self):
+    def tsu_rules(self) -> bool:
         return getattr(self.field, "tsu_rules", False)
 
     @property
-    def max_chain(self):
+    def max_chain(self) -> int:
         return (self.width * self.height) // self.field.CLEAR_THRESHOLD
 
     @property
-    def max_score(self):
+    def max_score(self) -> int:
         if isinstance(self.field, BottomField):
             return self.max_chain ** 2
         else:
             return 10 * self.width * self.height * 999 * self.max_chain  # FIXME: This overshoots a lot
 
-    def seed(self, seed=None):
+    def seed(self, seed=None) -> Optional[int]:
         self.np_random, seed = seeding.np_random(seed)
         return seed
 
-    def reset(self):
+    def reset(self) -> None:
         self.field.reset()
         self.make_deals()
 
@@ -125,18 +126,18 @@ class State(object):
         for x in range(self.field.WIDTH):
             self._validation_actions.append((x, 3))
 
-    def make_deals(self):
-        self.deals = []
+    def make_deals(self) -> None:
+        self.deals: List[Tuple[int, int]] = []
         for _ in range(self.num_deals):
             self.make_deal()
 
-    def make_deal(self):
+    def make_deal(self) -> None:
         self.deals.append((
             self.np_random.randint(0, self.num_colors),
             self.np_random.randint(0, self.num_colors),
         ))
 
-    def add_garbage(self, amount):
+    def add_garbage(self, amount: int):
         if not amount:
             return
         if not self.has_garbage:
@@ -159,7 +160,7 @@ class State(object):
         self.field.overlay(stack)
         self.field.handle_gravity()
 
-    def encode_deals(self):
+    def encode_deals(self) -> np.ndarray:
         np_deals = np.zeros((self.num_colors, self.num_deals, 2))
         for i, deal in enumerate(self.deals):
             np_deals[deal[0]][i][0] = 1
@@ -177,7 +178,7 @@ class State(object):
         return box
 
     def encode_field(self):
-        np_state = self.field.encode()
+        np_state: np.ndarray = self.field.encode()
         return np_state[:self.num_layers, (self.field.HEIGHT - self.height):, :self.width]
 
     def encode(self):
@@ -206,9 +207,11 @@ class State(object):
             raise ValueError("Unknown orientation")
         return stack
 
-    def play_deal(self, x, orientation):
+    def play_deal(self, x: int, orientation: int):
         if self.num_deals is not None:
             self.make_deal()
+        puyo_a: int
+        puyo_b: int
         puyo_a, puyo_b = self.deals.pop(0)
         index = self._validation_actions.index((x, orientation))
         self.field._make_move(index, puyo_a, puyo_b)
@@ -222,21 +225,21 @@ class State(object):
                 result[i] = 1
         return result
 
-    def validate_action(self, x, orientation):
+    def validate_action(self, x: int, orientation: int) -> bool:
         orientation %= 2
         if x + 1 - orientation >= self.width:
             return False
-        bitset = self.field._valid_moves(self.width)
-        index = self._validation_actions.index((x, orientation))
+        bitset: int = self.field._valid_moves(self.width)
+        index: int = self._validation_actions.index((x, orientation))
         return bool(bitset & (1 << index))
 
-    def step(self, x, orientation):
+    def step(self, x: int, orientation: int):
         if not self.deals:
             return -1
         if not self.validate_action(x, orientation):
             return -1
         self.play_deal(x, orientation)
-        reward = self.field.resolve()[0]
+        reward: int = self.field.resolve()[0]
         if isinstance(self.field, TallField) and not any(self.field.data):
             reward += 8500
         if self.TESTING:
@@ -273,7 +276,7 @@ class State(object):
                 result.append((None, score))
         return result
 
-    def field_to_int(self):
+    def field_to_int(self) -> int:
         result = 0
         for y in range(self.field.HEIGHT - self.height, self.field.HEIGHT):
             for x in range(self.width):

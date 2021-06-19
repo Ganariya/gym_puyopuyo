@@ -1,11 +1,12 @@
 import sys
+from typing import Tuple, List, Optional, Dict, Final
 
 import gym
 import numpy as np
 from gym import spaces
 from six import StringIO
 
-from gym_puyopuyo.versus import Game
+from gym_puyopuyo.versus import Game, VersusState
 
 
 class PuyoPuyoVersusEnv(gym.Env):
@@ -13,23 +14,23 @@ class PuyoPuyoVersusEnv(gym.Env):
     Puyo Puyo environment. Versus mode.
     """
 
-    TESTING = False
+    TESTING: bool = False
 
-    metadata = {"render.modes": ["human", "ansi"]}
+    metadata: Dict[str, List[str]] = {"render.modes": ["human", "ansi"]}
 
-    def __init__(self, opponent, state_params, garbage_clue_weight=0):
+    def __init__(self, opponent, state_params, garbage_clue_weight: int = 0):
         self.opponent = opponent
-        self.state = Game(state_params=state_params)
-        self.garbage_clue_weight = garbage_clue_weight
+        self.state: Game = Game(state_params=state_params)
+        self.garbage_clue_weight: int = garbage_clue_weight
 
-        self.reward_range = (-1, 1)
+        self.reward_range: Tuple[int, int] = (-1, 1)
 
-        player = self.state.players[0]
-        max_steps = player.height * player.width
+        player: VersusState = self.state.players[0]
+        max_steps: int = player.height * player.width
         if not player.tsu_rules:
             max_steps //= 2
-        max_score = player.max_score + max_steps * player.step_bonus
-        player_space = spaces.Dict({
+        max_score: int = player.max_score + max_steps * player.step_bonus
+        player_space: spaces.Dict = spaces.Dict({
             "deals": spaces.Box(0, 1, (player.num_colors, player.num_deals, 2), dtype=np.int8),
             "field": spaces.Box(0, 1, (player.num_layers, player.height, player.width), dtype=np.int8),
             "chain_number": spaces.Discrete(player.max_chain),
@@ -37,27 +38,27 @@ class PuyoPuyoVersusEnv(gym.Env):
             "pending_garbage": spaces.Discrete(max_score // player.target_score),
             "all_clear": spaces.Discrete(2),
         })
-        self.observation_space = spaces.Tuple((player_space, player_space))
-        self.action_space = spaces.Discrete(len(player.actions))
-        self.player = player
+        self.observation_space: spaces.Tuple = spaces.Tuple((player_space, player_space))
+        self.action_space: spaces.Discrete = spaces.Discrete(len(player.actions))
+        self.player: VersusState = player
         self.seed()
 
         self.viewer = None
         self.anim_states = [None, None]
-        self.last_actions = [None, None]
+        self.last_actions: List[Optional[int]] = [None, None]
 
-    def seed(self, seed=None):
+    def seed(self, seed=None) -> List[int]:
         return [self.state.seed(seed)]
 
-    def reset(self):
+    def reset(self) -> List:
         self.state.reset()
         return self.state.encode()
 
-    def close(self):
+    def close(self) -> None:
         if self.viewer:
             self.viewer.close()
 
-    def render(self, mode="console"):
+    def render(self, mode: str = "console") -> StringIO:
         if self.TESTING and mode == "human":
             mode = "console"
 
@@ -117,22 +118,22 @@ class PuyoPuyoVersusEnv(gym.Env):
         if mode == "ansi":
             return outfile
 
-    def step(self, action):
+    def step(self, action: int):
         self.last_actions[0] = action
-        root = self.get_root()
+        root: Game = self.get_root()
         root.players = root.players[::-1]
         opponent_action = self.opponent(root)
         self.last_actions[1] = opponent_action
-        acts = self.player.actions
+        acts: List[Tuple[int, int]] = self.player.actions
         reward, garbage, done = self.state.step([acts[action], acts[opponent_action]])
         reward += self.garbage_clue_weight * garbage
-        observation = self.state.encode()
+        observation: List[Dict[str, np.ndarray]] = self.state.encode()
         return observation, reward, done, {"state": self.state}
 
-    def get_action_mask(self):
+    def get_action_mask(self) -> int:
         return self.player.get_action_mask()
 
-    def get_root(self):
+    def get_root(self) -> Game:
         return self.state.clone()
 
     # TODO: Records
@@ -146,15 +147,15 @@ class PuyoPuyoVersusBoxedEnv(PuyoPuyoVersusEnv):
 
     def __init__(self, *args, **kwargs):
         super(PuyoPuyoVersusBoxedEnv, self).__init__(*args, **kwargs)
-        player = self.state.players[0]
+        player: VersusState = self.state.players[0]
         self.observation_space = spaces.Box(0, 1, (
             player.height + 1 + player.num_deals,
             (player.width + 1) * len(self.state.players) - 1,
             player.num_layers),
-            dtype=np.float32,
-        )
+                                            dtype=np.float32,
+                                            )
 
-    def encode(self):
+    def encode(self) -> np.ndarray:
         assert len(self.state.players) == 2
         player = self.state.players[0]
         opponent = self.state.players[1]
@@ -194,10 +195,10 @@ class PuyoPuyoVersusBoxedEnv(PuyoPuyoVersusEnv):
         # Convert to HWC to be compatible with TensorFlow conv2d.
         return box.transpose(1, 2, 0)
 
-    def reset(self):
+    def reset(self) -> np.ndarray:
         super(PuyoPuyoVersusBoxedEnv, self).reset()
         return self.encode()
 
-    def step(self, action):
+    def step(self, action: int):
         _, reward, done, info = super(PuyoPuyoVersusBoxedEnv, self).step(action)
         return self.encode(), reward, done, info

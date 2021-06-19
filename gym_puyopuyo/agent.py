@@ -1,19 +1,22 @@
+from typing import Final
 import random
 
+from typing import Tuple, List, Optional, Dict, Final, Type, Union
 import numpy as np
 
 import puyocore as core
 from gym_puyopuyo.field import TallField
+from gym_puyopuyo.state import State
 
-GAMMA = 0.95
+GAMMA: Final[float] = 0.95
 
 
-def tree_search_actions(state, depth, factor=0.22, occupation_threshold=0.0):
-    colors = []
+def tree_search_actions(state: State, depth: int, factor=0.22, occupation_threshold=0.0):
+    colors: List[int] = []
     for deal in state.deals[1:]:
         colors.extend(deal)
 
-    action_mask = 0
+    action_mask: int = 0
     for action in state.actions:
         action_mask |= 1 << state._validation_actions.index(action)
 
@@ -31,11 +34,11 @@ def tree_search_actions(state, depth, factor=0.22, occupation_threshold=0.0):
         search_args.insert(1, state.width)
         search_fun = core.tall_tree_search
 
-    base_popcount = state.field.popcount
-    prevent_chains = (base_popcount < occupation_threshold * state.width * state.height)
+    base_popcount: int = state.field.popcount
+    prevent_chains: bool = (base_popcount < occupation_threshold * state.width * state.height)
 
     best_indices = []
-    best_score = float("-inf")
+    best_score: float = float("-inf")
 
     possible_indices = []
     possible_score = float("-inf")
@@ -44,7 +47,7 @@ def tree_search_actions(state, depth, factor=0.22, occupation_threshold=0.0):
             continue
 
         args = [child.field.data] + search_args
-        tree_score = search_fun(*args)
+        tree_score: float = search_fun(*args)
 
         child_score = score + GAMMA * tree_score
 
@@ -66,9 +69,12 @@ def tree_search_actions(state, depth, factor=0.22, occupation_threshold=0.0):
 class BaseTreeSearchAgent(object):
     def __init__(self, returns_distribution=False):
         self.returns_distribution = returns_distribution
+        self.depth: int = 0
+        self.factor: float = 0
+        self.occupation_threshold: float = 0
 
-    def get_action(self, state):
-        indices = tree_search_actions(state, self.depth, self.factor, self.occupation_threshold)
+    def get_action(self, state: State) -> int:
+        indices: List[int] = tree_search_actions(state, self.depth, self.factor, self.occupation_threshold)
         if self.returns_distribution:
             dist = np.zeros(len(state.actions))
             for index in indices:
@@ -115,7 +121,9 @@ class LargeTreeSearchAgent(BaseTreeSearchAgent):
     occupation_threshold = 0.75
 
 
-AGENTS = {
+AgentTypes = Union[SmallTreeSearchAgent, WideTreeSearchAgent, TsuTreeSearchAgent, LargeTreeSearchAgent]
+
+AGENTS: Dict[str, Type[BaseTreeSearchAgent]] = {
     "small": SmallTreeSearchAgent,
     "wide": WideTreeSearchAgent,
     "tsu": TsuTreeSearchAgent,

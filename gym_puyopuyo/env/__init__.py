@@ -1,10 +1,12 @@
 import gym.envs
+from typing import Tuple, List, Optional, Dict, Final
 
 from gym_puyopuyo.agent import (
     LargeTreeSearchAgent, SmallTreeSearchAgent, TsuTreeSearchAgent,
-    WideTreeSearchAgent)
+    WideTreeSearchAgent, AgentTypes)
+from gym_puyopuyo.versus import Game
 
-ENV_NAMES = {
+ENV_NAMES: Dict[str, str] = {
     "small": "PuyoPuyoEndlessSmall-v2",
     "wide": "PuyoPuyoEndlessWide-v2",
     "tsu": "PuyoPuyoEndlessTsu-v2",
@@ -28,8 +30,7 @@ ENV_NAMES = {
     "vs-boxed-large": "PuyoPuyoVersusBoxedLarge-v1",
 }
 
-
-ENV_PARAMS = {
+ENV_PARAMS: Dict[str, Dict[str, int]] = {
     ENV_NAMES["vs-small"]: {
         "height": 8,
         "width": 3,
@@ -73,16 +74,16 @@ ENV_PARAMS = {
 
 
 class TreeWrapper(object):
-    def __init__(self, agent):
+    def __init__(self, agent: AgentTypes) -> None:
         self.agent = agent
 
-    def __call__(self, game):
+    def __call__(self, game: Game) -> int:
         if game.players[0].chain_number:
             return 0
         return self.agent.get_action(game.players[0])
 
 
-def register():
+def register() -> None:
     # Single player
 
     gym.envs.register(

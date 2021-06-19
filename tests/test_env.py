@@ -38,7 +38,7 @@ def test_env(name):
 
 
 @pytest.mark.parametrize("name", ENV_NAMES.values())
-def test_random_rollout(name):
+def test_random_rollout(name: str):
     env = make(name)
     agent = lambda ob: env.action_space.sample()  # noqa: E731
     ob = env.reset()

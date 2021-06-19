@@ -1,7 +1,9 @@
-from __future__ import division
+from __future__ import division, annotations
+from typing import List, Final, Tuple
 
 import random
 import sys
+from typing import Tuple, List, Optional, Dict, Final
 
 import gym
 import numpy as np
@@ -11,6 +13,7 @@ from six import StringIO
 from gym_puyopuyo.record import read_record
 from gym_puyopuyo.state import State
 from gym_puyopuyo.util import permute
+from gym_puyopuyo.versus import Game
 
 
 class PuyoPuyoEndlessEnv(gym.Env):
@@ -18,15 +21,15 @@ class PuyoPuyoEndlessEnv(gym.Env):
     Puyo Puyo environment. Single player endless mode.
     """
 
-    TESTING = False
+    TESTING: Final[bool] = False
 
     metadata = {"render.modes": ["human", "console", "ansi"]}
 
     def __init__(self, height, width, num_colors, num_deals, tsu_rules=False):
-        self.state = State(height, width, num_colors, num_deals, tsu_rules=tsu_rules)
-        self.reward_range = (-1, self.state.max_score)
+        self.state: State = State(height, width, num_colors, num_deals, tsu_rules=tsu_rules)
+        self.reward_range: Tuple[int, int] = (-1, self.state.max_score)
 
-        self.action_space = spaces.Discrete(len(self.state.actions))
+        self.action_space: spaces.Discrete = spaces.Discrete(len(self.state.actions))
         self.observation_space = spaces.Tuple((
             spaces.Box(0, 1, (self.state.num_colors, self.state.num_deals, 2), dtype=np.int8),
             spaces.Box(0, 1, (self.state.num_colors, self.state.height, self.state.width), dtype=np.int8),
@@ -35,7 +38,7 @@ class PuyoPuyoEndlessEnv(gym.Env):
 
         self.viewer = None
         self.anim_state = None
-        self.last_action = None
+        self.last_action: Optional[int] = None
 
     def seed(self, seed=None):
         return [self.state.seed(seed)]
@@ -47,7 +50,7 @@ class PuyoPuyoEndlessEnv(gym.Env):
             self.last_action = None
         return self.state.encode()
 
-    def close(self):
+    def close(self) -> None:
         if self.viewer:
             self.viewer.close()
 
@@ -82,22 +85,22 @@ class PuyoPuyoEndlessEnv(gym.Env):
         if mode == "ansi":
             return outfile
 
-    def _step_state(self, state, action, include_observations=True):
-        action = self.state.actions[action]
-        reward = self.state.step(*action)
+    def _step_state(self, state: State, action: int, include_observations: bool = True):
+        action: Tuple[int, int] = self.state.actions[action]
+        reward: int = self.state.step(*action)
         if include_observations:
             return self.state.encode(), reward
         return reward
 
-    def step(self, action):
+    def step(self, action: int):
         self.last_action = action
         observation, reward = self._step_state(self.state, action)
         return observation, reward, (reward < 0), {"state": self.state}
 
-    def get_action_mask(self):
+    def get_action_mask(self) -> int:
         return self.state.get_action_mask()
 
-    def get_root(self):
+    def get_root(self) -> Game:
         return self.state.clone()
 
     def read_record(self, file, include_last=False):
@@ -146,14 +149,15 @@ class PuyoPuyoEndlessBoxedEnv(PuyoPuyoEndlessEnv):
     """
     Environment with observations in the form of a single box to make it compatible with plain CNN policies.
     """
+
     def __init__(self, *args, **kwargs):
         super(PuyoPuyoEndlessBoxedEnv, self).__init__(*args, **kwargs)
         self.observation_space = spaces.Box(0, 1, (
             self.state.height + 1 + self.state.num_deals,
             self.state.width,
             self.state.num_colors),
-            dtype=np.float32,
-        )
+                                            dtype=np.float32,
+                                            )
 
     def encode(self):
         field = self.state.encode_field()
