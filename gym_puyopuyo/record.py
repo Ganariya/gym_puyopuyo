@@ -1,8 +1,10 @@
-from __future__ import unicode_literals
+from __future__ import unicode_literals, annotations
+from typing import Tuple, List, Optional, Dict, Final
 
 import json
 from collections import deque
 from random import random
+from gym_puyopuyo.state import State
 
 import six
 
@@ -28,8 +30,8 @@ def write_record(file, initial_state, actions):
         state.step(*action)
 
 
-def infer_deal_and_action(state, stack):
-    deal = []
+def infer_deal_and_action(state: State, stack: List[int]):
+    deal: List[int] = []
     for puyo in stack:
         if puyo is not None:
             deal.append(puyo)

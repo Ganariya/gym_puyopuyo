@@ -1,4 +1,6 @@
-POPCOUNTS_256 = [
+from typing import Tuple, List, Optional, Dict, Final, Type, Union
+
+POPCOUNTS_256: Final[List[int]] = [
     0, 1, 1, 2, 1, 2, 2, 3, 1, 2, 2, 3, 2, 3, 3, 4,
     1, 2, 2, 3, 2, 3, 3, 4, 2, 3, 3, 4, 3, 4, 4, 5,
     1, 2, 2, 3, 2, 3, 3, 4, 2, 3, 3, 4, 3, 4, 4, 5,
@@ -18,7 +20,7 @@ POPCOUNTS_256 = [
 ]
 
 
-def naive_popcount(n):
+def naive_popcount(n: int) -> int:
     count = 0
     while n:
         if n & 1:

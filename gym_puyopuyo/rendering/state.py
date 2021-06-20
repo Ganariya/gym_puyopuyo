@@ -1,14 +1,21 @@
+from __future__ import annotations
+from typing import TYPE_CHECKING, Optional, List, Dict, Tuple, Union, Generator
+
+if TYPE_CHECKING:
+    from gym_puyopuyo.state import State
+
+
 class Entity(object):
     def __init__(self):
-        pass
+        self.color: int = -1
 
-    def __eq__(self, other):
+    def __eq__(self, other: Entity) -> bool:
         return False
 
 
 class ColoredEntity(Entity):
     @property
-    def sprite_color(self):
+    def sprite_color(self) -> int:
         """Shuffle colors to be consistent with ansi rendering"""
         if self.color == 2:
             return 3
@@ -18,29 +25,31 @@ class ColoredEntity(Entity):
 
 
 class Puyo(ColoredEntity):
-    def __init__(self, color):
-        self.color = color
-        self.falling = False
+    def __init__(self, color: int) -> None:
+        super().__init__()
+        self.color: int = color
+        self.falling: bool = False
 
-    def __eq__(self, other):
+    def __eq__(self, other: Puyo) -> bool:
         if not isinstance(other, Puyo):
             return False
         if self.falling or other.falling:
             return False
         return self.color == other.color
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return "{}({})".format(self.__class__.__name__, self.color)
 
 
 class Pop(ColoredEntity):
     MAX_AGE = 2
 
-    def __init__(self, color):
-        self.color = color
-        self.age = 0
+    def __init__(self, color: int):
+        super().__init__()
+        self.color: int = color
+        self.age: int = 0
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return "{}({})".format(self.__class__.__name__, self.color)
 
 
@@ -52,21 +61,26 @@ class Ground(Entity):
     pass
 
 
+EntityType = Optional[Union[Ground, Puyo, Garbage]]
+
+
 class AnimationState(object):
-    def __init__(self, state):
-        self.state = state
+    def __init__(self, state: State):
+        self.state: State = state
         self.infer_entities()
+        self.entities: List[EntityType]
+        self.all_entities: List[EntityType]
 
     @property
-    def width(self):
+    def width(self) -> int:
         return self.state.width
 
     @property
-    def height(self):
+    def height(self) -> int:
         return self.state.height
 
     @property
-    def tsu_rules(self):
+    def tsu_rules(self) -> bool:
         return self.state.tsu_rules
 
     @property
@@ -76,19 +90,19 @@ class AnimationState(object):
             result.append((Puyo(deal[0]), Puyo(deal[1])))
         return result
 
-    def infer_entities(self):
-        self.entities = [self.infer_entity(puyo) for puyo in self.state.to_list(offset=True)]
+    def infer_entities(self) -> None:
+        self.entities: List[EntityType] = [self.infer_entity(puyo) for puyo in self.state.to_list(offset=True)]
         if self.tsu_rules:
-            self.all_entities = [self.infer_entity(puyo) for puyo in self.state.to_list(offset=False)]
+            self.all_entities: List[EntityType] = [self.infer_entity(puyo) for puyo in self.state.to_list(offset=False)]
 
-    def infer_entity(self, color):
+    def infer_entity(self, color: Optional[int]) -> EntityType:
         if color is None:
             return None
         if color == self.state.num_colors:
             return Garbage()
         return Puyo(color)
 
-    def __getitem__(self, xy):
+    def __getitem__(self, xy: Tuple[int, int]) -> EntityType:
         x, y = xy
         if y >= self.height:
             return Ground()
@@ -96,11 +110,11 @@ class AnimationState(object):
             return None
         return self.entities[x + y * self.width]
 
-    def __setitem__(self, xy, entity):
+    def __setitem__(self, xy: Tuple[int, int], entity: EntityType) -> None:
         x, y = xy
         self.entities[x + y * self.width] = entity
 
-    def step_pops(self):
+    def step_pops(self) -> None:
         for i in range(len(self.entities)):
             entity = self.entities[i]
             if isinstance(entity, Pop):
@@ -108,7 +122,7 @@ class AnimationState(object):
                 if entity.age >= entity.MAX_AGE:
                     self.entities[i] = None
 
-    def _resolve_cycle(self):
+    def _resolve_cycle(self) -> Generator[AnimationState]:
         while self.step_gravity():
             yield self
 
@@ -130,10 +144,10 @@ class AnimationState(object):
             yield self
             self.infer_entities()
 
-    def resolve(self):
+    def resolve(self) -> Generator[AnimationState]:
         yield self
 
-        changed = True
+        changed: bool = True
         while changed:
             changed = False
             for frame in self._resolve_cycle():
@@ -146,11 +160,11 @@ class AnimationState(object):
 
         self.infer_entities()
 
-    def step_gravity(self):
+    def step_gravity(self) -> bool:
         if self.tsu_rules:
             return self.step_gravity_hack()
 
-        changed = False
+        changed: bool = False
         for i, entity in reversed(list(enumerate(self.entities[:]))):
             if not entity:
                 continue
@@ -164,17 +178,17 @@ class AnimationState(object):
                 entity.falling = False
         return changed
 
-    def get_hack(self, x, y):
+    def get_hack(self, x: int, y: int) -> EntityType:
         if y >= self.state.field.HEIGHT:
             return Ground()
         if y < 0 or x < 0 or x >= self.width:
             return None
         return self.all_entities[x + y * self.width]
 
-    def set_hack(self, x, y, entity):
+    def set_hack(self, x: int, y: int, entity) -> None:
         self.all_entities[x + y * self.width] = entity
 
-    def step_gravity_hack(self):
+    def step_gravity_hack(self) -> bool:
         changed = False
         for i, entity in reversed(list(enumerate(self.all_entities[:]))):
             if not entity:
@@ -190,8 +204,8 @@ class AnimationState(object):
         self.entities[:] = self.all_entities[-len(self.entities):]
         return changed
 
-    def to_list(self):
-        result = []
+    def to_list(self) -> List[Optional[int]]:
+        result: List[Optional[int]] = []
         for entity in self.entities:
             if isinstance(entity, Puyo):
                 result.append(entity.color)
